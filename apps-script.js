@@ -3,11 +3,17 @@
 // Ejecutar como: Yo | Acceso: Cualquier persona
 // IMPORTANTE: cada vez que modifiques este código debes crear una NUEVA implementación
 
+// *** CAMBIA ESTO POR TU CONTRASEÑA ***
+const SECRET_KEY = 'mi-contraseña-secreta';
+
 const SHEET_EXPENSES   = 'Gastos';
 const SHEET_CATEGORIES = 'Categorías';
 
 function doGet(e) {
   const action = e.parameter.action;
+  const key    = e.parameter.key;
+
+  if (!checkKey(key)) return json({ ok: false, error: 'No autorizado' });
 
   if (action === 'ping') {
     return json({ ok: true });
@@ -26,6 +32,8 @@ function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
 
+    if (!checkKey(body.key)) return json({ ok: false, error: 'No autorizado' });
+
     if (body.action === 'sync') {
       syncExpenses(body.expenses || []);
       syncCategories(body.categories || []);
@@ -36,6 +44,10 @@ function doPost(e) {
   } catch (err) {
     return json({ ok: false, error: err.message });
   }
+}
+
+function checkKey(key) {
+  return key === SECRET_KEY;
 }
 
 // ── Leer ──────────────────────────────────────────────

@@ -134,10 +134,42 @@
   .setup-steps li { font-size:12px; }
   code { background:var(--surface2); border-radius:4px; padding:1px 5px; font-size:12px; font-family:monospace; }
   hr { border:none; border-top:0.5px solid var(--border); margin:1rem 0; }
+  #loginScreen {
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1rem;
+  }
+  .login-card {
+    background:var(--surface); border:0.5px solid var(--border); border-radius:var(--radius);
+    padding:2rem; width:100%; max-width:340px; display:flex; flex-direction:column; gap:1.25rem;
+  }
+  .login-logo { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:500; }
+  .login-logo i { font-size:24px; color:var(--accent); }
+  .login-error { font-size:13px; color:var(--danger-text); background:var(--danger-bg); padding:8px 12px; border-radius:var(--radius-sm); display:none; }
+  #appShell { display:none; }
 </style>
 </head>
 <body>
 
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <i class="ti ti-wallet" aria-hidden="true"></i>
+      Mis Gastos
+    </div>
+    <p style="font-size:14px;color:var(--text2)">Ingresa tu contraseña para continuar.</p>
+    <form id="loginForm" style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label class="field-label" for="loginPass">Contraseña</label>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required>
+      </div>
+      <div id="loginError" class="login-error">Contraseña incorrecta</div>
+      <button type="submit" class="btn btn-primary" style="width:100%">
+        <i class="ti ti-lock-open" aria-hidden="true"></i> Entrar
+      </button>
+    </form>
+  </div>
+</div>
+
+<div id="appShell">
 <header>
   <div class="logo">
     <i class="ti ti-wallet" aria-hidden="true"></i>
@@ -339,7 +371,51 @@
   </div>
 </div>
 
+</div> <!-- /appShell -->
+
 <script>
+// ── Login ─────────────────────────────────────────────
+let SESSION_KEY = '';
+
+function getKey() { return SESSION_KEY; }
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display    = 'block';
+  loadFromSheet();
+}
+
+document.getElementById('loginForm').addEventListener('submit', async function(ev) {
+  ev.preventDefault();
+  const pass = document.getElementById('loginPass').value;
+  const url  = localStorage.getItem('gx_sheet_url');
+  const err  = document.getElementById('loginError');
+  err.style.display = 'none';
+
+  if (!url) {
+    SESSION_KEY = pass;
+    showApp();
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${url}?action=ping&key=${encodeURIComponent(pass)}`);
+    const json = await res.json();
+    if (json.ok) {
+      SESSION_KEY = pass;
+      showApp();
+    } else {
+      err.textContent = 'Contraseña incorrecta';
+      err.style.display = 'block';
+      document.getElementById('loginPass').value = '';
+    }
+  } catch(e) {
+    SESSION_KEY = pass;
+    showApp();
+  }
+});
+
+// ── Datos ─────────────────────────────────────────────
 const PALETTE = ['#534ab7','#1d9e75','#d85a30','#d4537e','#378add','#ba7517','#e24b4a','#639922','#888780','#0f6e56','#993c1d','#993556'];
 const ICONS = ['ti-bowl-spoon','ti-bus','ti-confetti','ti-heart','ti-home','ti-shirt','ti-book','ti-dots-circle-horizontal','ti-paw','ti-music','ti-device-gamepad-2','ti-plane','ti-gift','ti-tools','ti-building-store','ti-bike','ti-car','ti-coffee','ti-pizza','ti-beach','ti-pill','ti-barbell','ti-tree','ti-device-mobile','ti-cut','ti-coin','ti-briefcase','ti-baby-carriage'];
 
@@ -540,7 +616,7 @@ async function syncToSheet() {
   try {
     const res = await fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ action:'sync', expenses, categories }),
+      body: JSON.stringify({ action:'sync', key: getKey(), expenses, categories }),
     });
     const json = await res.json();
     if (json.ok) {
@@ -720,7 +796,7 @@ async function loadFromSheet() {
   dot.className = 'sync-dot syncing'; lbl.textContent = 'Cargando…';
 
   try {
-    const res  = await fetch(url + '?action=load');
+    const res  = await fetch(`${url}?action=load&key=${encodeURIComponent(getKey())}`);
     const json = await res.json();
     if (json.ok) {
       const data = loadData();
@@ -735,8 +811,6 @@ async function loadFromSheet() {
   }
   render();
 }
-
-loadFromSheet();
 </script>
 </body>
 </html>
