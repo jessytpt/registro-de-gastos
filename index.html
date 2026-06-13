@@ -710,7 +710,33 @@ document.getElementById('testConnection').addEventListener('click', async () => 
 document.getElementById('syncNowBtn').addEventListener('click', syncToSheet);
 
 document.getElementById('expDate').value = new Date().toISOString().slice(0,10);
-render();
+
+async function loadFromSheet() {
+  const url = localStorage.getItem('gx_sheet_url');
+  if (!url) { render(); return; }
+
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLabel');
+  dot.className = 'sync-dot syncing'; lbl.textContent = 'Cargando…';
+
+  try {
+    const res  = await fetch(url + '?action=load');
+    const json = await res.json();
+    if (json.ok) {
+      const data = loadData();
+      if (json.expenses)   data.expenses   = json.expenses;
+      if (json.categories && json.categories.length > 0) data.categories = json.categories;
+      saveLocal(data);
+      const ts = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+      localStorage.setItem('gx_last_sync', ts);
+    }
+  } catch(e) {
+    dot.className = 'sync-dot err'; lbl.textContent = 'Sin conexión';
+  }
+  render();
+}
+
+loadFromSheet();
 </script>
 </body>
 </html>
